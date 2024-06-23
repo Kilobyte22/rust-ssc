@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::net::Ipv6Addr;
 use std::sync::Arc;
 
-use futures_util::StreamExt;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{Map, Value};
@@ -16,18 +15,15 @@ pub mod error;
 
 pub use discovery::{run as discover, Protocol};
 
-enum StateEntry {
-    WaitForReply(oneshot::Sender<String>),
-    Subscription,
-}
-
 enum WriteSocketKind {
     TCP(WriteHalf<TcpStream>),
+    #[allow(dead_code)]
     UDP(UdpSocket),
 }
 
 enum ReadSocketKind {
     TCP(ReadHalf<TcpStream>),
+    #[allow(dead_code)]
     UDP(UdpSocket),
 }
 
@@ -109,8 +105,7 @@ impl Client {
 
         let res = wait_response(rx).await?;
 
-        let mut outer_response: Vec<serde_json::Value> =
-            unserialize_json_message("/osc/schema", res)?;
+        let outer_response: Vec<serde_json::Value> = unserialize_json_message("/osc/schema", res)?;
 
         let actual_schema: HashMap<String, serde_json::Value> =
             unpack_json_message(path, outer_response.into_iter().next().unwrap())?;
@@ -128,7 +123,7 @@ impl Client {
                     };
                     ListNode::Branch(Box::new(Box::pin(self.list(&sub_path)).await?))
                 }
-                v => return Err(error::Error::InvalidPath),
+                _ => return Err(error::Error::InvalidPath),
             };
             res.insert(k, v);
         }
@@ -136,7 +131,7 @@ impl Client {
         Ok(res)
     }
 
-    async fn register_callback(&self, path: String, callback: oneshot::Sender<String>) {
+    async fn register_callback(&self, _path: String, callback: oneshot::Sender<String>) {
         let mut guard = self.state.lock().await;
         guard.reply_to = Some(callback)
     }

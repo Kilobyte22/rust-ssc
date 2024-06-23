@@ -153,7 +153,7 @@ fn discovery_thread(
     let event_loop = browser.browse_services().unwrap();
 
     loop {
-        event_loop.poll(time::Duration::from_millis(100));
+        event_loop.poll(time::Duration::from_millis(100)).unwrap();
         match exit_handle.try_recv() {
             Ok(()) => {
                 unreachable!("Receiver will never receive any messages")
