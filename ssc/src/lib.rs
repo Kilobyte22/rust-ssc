@@ -28,7 +28,7 @@ use tokio::{task, time};
 mod discovery;
 pub mod error;
 
-pub use discovery::{run as discover, Protocol};
+pub use discovery::{run as discover, DiscoveredDevice, Protocol};
 
 enum WriteSocketKind {
     TCP(WriteHalf<TcpStream>),

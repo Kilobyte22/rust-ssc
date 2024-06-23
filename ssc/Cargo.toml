@@ -1,6 +1,6 @@
 [package]
 name = "ssc"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Rust Library for Sennheiser Sound Control Protocol"
 repository = "https://github.com/Kilobyte22/rust-ssc"
