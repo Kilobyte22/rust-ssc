@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use clap::ArgMatches;
 use clap::builder::PossibleValuesParser;
+use clap::ArgMatches;
 use serde_json::Value;
 
-use ssc::{DiscoveryMode, ListNode};
+use ssc::{ListNode, Protocol};
 
 fn args() -> clap::Command {
     clap::command!()
@@ -68,6 +68,7 @@ fn args() -> clap::Command {
                         .required(true),
                 ),
         )
+        .subcommand(clap::Command::new("discover").about("Find all devices to be discovered"))
         .subcommand(clap::Command::new("list").about("Lists all available paths"))
         .subcommand_required(true)
 }
@@ -76,8 +77,8 @@ async fn get_client_for_args(args: &ArgMatches) -> ssc::error::Result<ssc::Clien
     let host = args.get_one::<String>("server").unwrap().as_str();
     let port: u16 = *args.get_one("port").unwrap();
     let protocol = match args.get_one::<String>("protocol").unwrap().as_str() {
-        "TCP" => DiscoveryMode::TCP,
-        "UDP" => DiscoveryMode::UDP,
+        "TCP" => Protocol::TCP,
+        "UDP" => Protocol::UDP,
         _ => unreachable!(),
     };
     Ok(ssc::Client::connect((host, port), protocol).await?)
@@ -86,6 +87,19 @@ async fn get_client_for_args(args: &ArgMatches) -> ssc::error::Result<ssc::Clien
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
     let args = args().get_matches();
+
+    if let Some(("discover", _)) = args.subcommand() {
+        let mut discovery = ssc::discover().await;
+
+        loop {
+            let device = discovery.next().await;
+
+            println!(
+                "Found A {:?} with serial number {:?}",
+                device.model, device.id
+            );
+        }
+    }
 
     let mut client = get_client_for_args(&args).await?;
 
@@ -111,7 +125,7 @@ async fn main() -> anyhow::Result<()> {
             print_list_tree(&tree, "");
         }
         _ => unreachable!(),
-    }
+    };
     Ok(())
 }
 

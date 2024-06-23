@@ -6,15 +6,15 @@ use futures_util::StreamExt;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{Map, Value};
-use tokio::{task, time};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, ReadHalf, WriteHalf};
 use tokio::net::{TcpStream, ToSocketAddrs, UdpSocket};
-use tokio::sync::{Mutex, oneshot};
-
-pub use discovery::{discover_devices, DiscoveryMode};
+use tokio::sync::{oneshot, Mutex};
+use tokio::{task, time};
 
 mod discovery;
 pub mod error;
+
+pub use discovery::{run as discover, Protocol};
 
 enum StateEntry {
     WaitForReply(oneshot::Sender<String>),
@@ -47,18 +47,15 @@ pub enum ListNode {
 }
 
 impl Client {
-    pub async fn connect<TSA: ToSocketAddrs>(
-        addr: TSA,
-        mode: DiscoveryMode,
-    ) -> error::Result<Self> {
+    pub async fn connect<TSA: ToSocketAddrs>(addr: TSA, mode: Protocol) -> error::Result<Self> {
         let (write_socket, read_socket) = match mode {
-            DiscoveryMode::UDP => {
+            Protocol::UDP => {
                 let socket = UdpSocket::bind((Ipv6Addr::UNSPECIFIED, 0)).await?;
                 socket.connect(addr).await?;
                 WriteSocketKind::UDP(socket);
                 todo!()
             }
-            DiscoveryMode::TCP => {
+            Protocol::TCP => {
                 let (rx, tx) = tokio::io::split(TcpStream::connect(addr).await?);
                 (WriteSocketKind::TCP(tx), ReadSocketKind::TCP(rx))
             }
@@ -266,8 +263,9 @@ mod test {
             value: u8,
         }
 
-        let got = String::from_utf8(build_json_message("/test/42", &Test { value: 42 }).unwrap())
-            .unwrap();
+        let got =
+            String::from_utf8(serialize_json_message("/test/42", &Test { value: 42 }).unwrap())
+                .unwrap();
         let want = r#"{"test":{"42":{"value":42}}}"#;
 
         assert_eq!(&got, want);
@@ -280,7 +278,7 @@ mod test {
             value: u8,
         }
 
-        let got: Test = unpack_json_message(
+        let got: Test = unserialize_json_message(
             "/test/42",
             r#"{"test": {"42": {"value": 42 } } }"#.to_owned(),
         )
