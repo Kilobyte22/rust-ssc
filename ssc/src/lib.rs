@@ -1,3 +1,18 @@
+//! This library allows you to remotely control many Sennheiser manufactured professional audio devices.
+//! This includes some devices of other brands owned by Sennheiser, like for example Neumanns DSP based studio monitors.
+//!
+//! ```rust,ignore
+//! let mut discovery = ssc::discover().await?
+//!
+//! let device_info = discovery.next().await;
+//!
+//! let mut client = Client::connect(device_info.socket_addr, device_info.protocol).await?
+//!
+//! let serial: String = client.get("/device/identity/serial");
+//!
+//! println!("Serial Number: {serial}");
+//! ```
+
 use std::collections::HashMap;
 use std::net::Ipv6Addr;
 use std::sync::Arc;
@@ -31,6 +46,16 @@ struct State {
     reply_to: Option<oneshot::Sender<String>>,
 }
 
+/// An SSC Client connected to a device
+/// ```rust,ignore
+/// # // We can't run it because obviously no such device exits
+/// # // We also can't even compile it, because we don't enable the tokio rt feature in the crate
+/// let mut client = Client::connect(("2001:db8::42", 45), Protocol::TCP).await?
+///
+/// let serial: String = client.get("/device/identity/serial");
+///
+/// println!("Serial Number: {serial}");
+/// ```
 pub struct Client {
     state: Arc<Mutex<State>>,
     socket: WriteSocketKind,
@@ -43,6 +68,7 @@ pub enum ListNode {
 }
 
 impl Client {
+    /// Connects to a device using the specified protocol
     pub async fn connect<TSA: ToSocketAddrs>(addr: TSA, mode: Protocol) -> error::Result<Self> {
         let (write_socket, read_socket) = match mode {
             Protocol::UDP => {
@@ -67,6 +93,7 @@ impl Client {
         })
     }
 
+    /// Gets a certain path and automatically deserializes the data at the specified path
     pub async fn get<T: DeserializeOwned>(&mut self, path: &str) -> error::Result<T> {
         let (tx, rx) = oneshot::channel();
         self.register_callback(path.to_owned(), tx).await;
@@ -77,6 +104,7 @@ impl Client {
         unserialize_json_message(path, response)
     }
 
+    /// Sets a path to the specified value
     pub async fn set<T: Serialize>(&mut self, path: &str, value: &T) -> error::Result<()> {
         let (tx, rx) = oneshot::channel();
         self.register_callback(path.to_owned(), tx).await;
@@ -89,6 +117,7 @@ impl Client {
         Ok(())
     }
 
+    /// Returns the entire SSC tree of the device or of a subpath
     pub async fn list(&mut self, path: &str) -> error::Result<HashMap<String, ListNode>> {
         let message = build_json_message(path, &serde_json::Value::Null)?;
 
