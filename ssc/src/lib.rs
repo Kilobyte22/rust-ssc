@@ -49,7 +49,6 @@ struct State {
 /// An SSC Client connected to a device
 /// ```rust,ignore
 /// # // We can't run it because obviously no such device exits
-/// # // We also can't even compile it, because we don't enable the tokio rt feature in the crate
 /// let mut client = Client::connect(("2001:db8::42", 45), Protocol::TCP).await?
 ///
 /// let serial: String = client.get("/device/identity/serial");
